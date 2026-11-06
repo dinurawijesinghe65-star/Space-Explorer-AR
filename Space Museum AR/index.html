@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Space Explorer Mini Exhibit</title>
+    <!-- AR.js + A-Frame -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+      /* Status banner styling */
+      #status-banner {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 28px;
+        border-radius: 30px;
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+        font-size: 18px;
+        color: white;
+        z-index: 9999;
+        transition: background-color 0.4s, opacity 0.4s;
+        text-align: center;
+        pointer-events: none;
+      }
+      #status-banner.searching {
+        background-color: #e67e22;
+      }
+      #status-banner.found {
+        background-color: #27ae60;
+      }
+      #status-banner.lost {
+        background-color: #c0392b;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ========== STATUS BANNER ========== -->
+    <div id="status-banner" class="searching">🔍 Point your camera at the Hiro marker…</div>
+
+    <!-- ========== A-FRAME AR SCENE ========== -->
+    <a-scene
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      renderer="logarithmicDepthBuffer: true;"
+      vr-mode-ui="enabled: false"
+    >
+      <!-- Cursor for tapping (raycaster from screen centre) -->
+      <a-entity
+        cursor="fuse: false; rayOrigin: mouse"
+        raycaster="objects: .clickable"
+      ></a-entity>
+
+      <!-- ========== HIRO MARKER SCENE ========== -->
+      <a-marker
+        id="hiro-marker"
+        preset="hiro"
+        emitevents="true"
+        smooth="true"
+        smoothCount="5"
+      >
+        <!-- ---- 1. A-TEXT LABEL ---- -->
+        <a-text
+          value="SPACE EXPLORER"
+          position="0 1.6 -0.5"
+          align="center"
+          color="#ffffff"
+          width="3"
+          font="kelsonsans"
+        ></a-text>
+
+        <!-- ---- 2. GLTF MODEL (Astronaut) ---- -->
+<a-entity
+    id="astronaut-model"
+    gltf-model="./assets/astronaut.glb"
+    position="0 0.3 -0.8"
+    scale="0.5 0.5 0.5"
+    rotation="0 0 0"
+    animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear">
+</a-entity>
+
+        <!-- ---- 3. ROTATING SPHERE (Planet) — clickable & animated ---- -->
+        <a-sphere
+          id="planet-sphere"
+          class="clickable"
+          position="0.9 0.5 -0.8"
+          radius="0.35"
+          color="#3498db"
+          cursor-listener
+        >
+          <!-- Animation 2: Sphere bobbing up and down (different property #2) -->
+          <a-animation
+            attribute="position"
+            to="0.9 0.7 -0.8"
+            dir="alternate"
+            dur="2000"
+            repeat="indefinite"
+            easing="easeInOutSine"
+          ></a-animation>
+        </a-sphere>
+
+        <!-- ---- 4. ROTATING BOX — clickable & toggles visibility ---- -->
+        <a-box
+          id="cargo-box"
+          class="clickable"
+          position="-0.9 0.5 -0.8"
+          width="0.4"
+          height="0.4"
+          depth="0.4"
+          color="#e74c3c"
+          toggle-visibility
+        >
+          <a-animation
+            attribute="rotation"
+            to="360 360 0"
+            dur="4000"
+            repeat="indefinite"
+            easing="linear"
+          ></a-animation>
+        </a-box>
+
+        <!-- ---- 5. CYLINDER (Base/Plinth) — static ---- -->
+        <a-cylinder
+          position="0 0 -0.8"
+          radius="0.15"
+          height="0.08"
+          color="#f1c40f"
+        ></a-cylinder>
+      </a-marker>
+
+      <!-- Camera & lights -->
+      <a-entity camera></a-entity>
+      <a-entity light="type: ambient; intensity: 0.6;"></a-entity>
+      <a-entity light="type: directional; position: 1 2 1; intensity: 0.8;"></a-entity>
+    </a-scene>
+
+    <!-- ========== CUSTOM COMPONENTS & BANNER LOGIC ========== -->
+    <script>
+      // ---------- CUSTOM COMPONENT 1: Change sphere colour on tap ----------
+      AFRAME.registerComponent('cursor-listener', {
+        init: function () {
+          const COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'];
+          let index = 0;
+          this.el.addEventListener('click', function () {
+            index = (index + 1) % COLORS.length;
+            this.setAttribute('material', 'color', COLORS[index]);
+            console.log('Sphere colour changed to', COLORS[index]);
+          });
+        },
+      });
+
+      // ---------- CUSTOM COMPONENT 2: Toggle box visibility on tap ----------
+      AFRAME.registerComponent('toggle-visibility', {
+        init: function () {
+          this.el.addEventListener('click', function () {
+            const current = this.getAttribute('visible');
+            this.setAttribute('visible', !current);
+            console.log('Box visibility toggled to', !current);
+          });
+        },
+      });
+
+      const astronaut = document.querySelector('#astronaut-model');
+
+astronaut.addEventListener('model-loaded', function () {
+    console.log('Astronaut loaded successfully!');
+});
+
+astronaut.addEventListener('model-error', function (error) {
+    console.error('Astronaut loading error:', error);
+});
+
+      // ---------- STATUS BANNER: markerFound / markerLost ----------
+      const banner = document.getElementById('status-banner');
+      const marker = document.getElementById('hiro-marker');
+
+      marker.addEventListener('markerFound', function () {
+        banner.textContent = '✅ Marker found — Explore the exhibit!';
+        banner.className = 'found';
+      });
+
+      marker.addEventListener('markerLost', function () {
+        banner.textContent = '❌ Marker lost — Point at the Hiro marker again';
+        banner.className = 'lost';
+      });
+    </script>
+  </body>
+</html>
